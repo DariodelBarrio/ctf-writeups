@@ -28,4 +28,15 @@ Writeups de máquinas resueltas en plataformas de CTF y pentesting.
 | [Little Pivoting](docker-labs/little-pivoting/) | Medium | Linux | Metasploit, autoroute, SOCKS proxy, port forwarding, Path Traversal |
 | [Pressenter](docker-labs/pressenter/) | Easy | Linux | WordPress, malicious plugin, wp-config.php, MySQL, credential reuse |
 | [Agua de Mayo](docker-labs/agua-de-mayo/) | Easy | Linux | Brainfuck in HTML, gobuster, SSH, sudo bettercap, SUID bash |
-| [Wargames](docker-labs/wargames/) | Easy | Linux | FTP, SSH, HTTP — incomplete notes |
+| [Wargames](docker-labs/wargames/) | Easy | Linux | WOPR telnet, Prompt injection, SHA-256 hash lookup, SUID godmode binary |
+
+## TryHackMe
+
+| Máquina | Dificultad | SO | Técnicas |
+|---------|------------|-----|----------|
+| [RootMe](try-hack-me/rootme/) | Easy | Linux | File Upload Extension Bypass (.phtml), SUID Python |
+| [Game Zone](try-hack-me/game-zone/) | Easy | Linux | SQLi, sqlmap, John SHA-256, SSH Port Forwarding, Webmin RCE |
+| [Basic Pentesting](try-hack-me/basic-pentest/) | Easy | Linux | gobuster, SMB, hydra SSH, SSH key cracking, sudo |
+| [Network Services](try-hack-me/network-services/) | Easy | Linux | SMB null session, enum4linux, credential discovery |
+| [Wreath](try-hack-me/wreath/) | Medium | Linux | Webmin CVE-2019-15107 RCE, SSH key extraction, pivoting |
+| [TakeOver](try-hack-me/takeover/) | Easy | Linux | Subdomain fuzzing — pending |
