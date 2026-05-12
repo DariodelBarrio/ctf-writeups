@@ -48,3 +48,13 @@ Writeups de máquinas resueltas en plataformas de CTF y pentesting.
 | [Kioptrix Level 1](vuln-hub/kioptrix-1/) | Easy | Linux | Samba 2.2.1a trans2open RCE, searchsploit, gcc |
 | [Kioptrix Level 1.1](vuln-hub/kioptrix-1.1/) | Easy | Linux | SQLi auth bypass, Command Injection, Kernel exploit 2.6.9 |
 | [Kioptrix Level 1.2](vuln-hub/kioptrix-1.2/) | Easy | Linux | gobuster, SQLi, sqlmap, hash cracking, sudo ht, /etc/sudoers |
+
+## INE Labs
+
+| Lab | Dificultad | SO | Técnicas |
+|-----|------------|-----|----------|
+| [Exploitation CTF 1](labs-ine/exploitation-ctf-1/) | Easy | Linux | Flatcore CVE-2021-39608, WordPress Duplicator CVE-2020-11738, hydra SSH |
+| [Exploitation CTF 2](labs-ine/exploitation-ctf-2/) | Easy | Windows | SMB brute force, NTLM hash reuse, FTP, msfvenom ASPX shell |
+| [Windows SMB PSexec](labs-ine/windows-smb-psexec/) | Easy | Windows | WinRM, CrackMapExec brute force, Evil-WinRM |
+| [LAB SMB](labs-ine/lab-smb/) | Easy | Linux | Samba 4.1 is_known_pipename RCE |
+| [LAB Pivoting](labs-ine/lab-pivoting/) | Medium | Windows | HFS 2.3 RCE, autoroute, SOCKS proxy, BadBlue 2.7 bind_tcp |
