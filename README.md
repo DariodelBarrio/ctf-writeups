@@ -40,3 +40,11 @@ Writeups de máquinas resueltas en plataformas de CTF y pentesting.
 | [Network Services](try-hack-me/network-services/) | Easy | Linux | SMB null session, enum4linux, credential discovery |
 | [Wreath](try-hack-me/wreath/) | Medium | Linux | Webmin CVE-2019-15107 RCE, SSH key extraction, pivoting |
 | [TakeOver](try-hack-me/takeover/) | Easy | Linux | Subdomain fuzzing — pending |
+
+## VulnHub
+
+| Máquina | Dificultad | SO | Técnicas |
+|---------|------------|-----|----------|
+| [Kioptrix Level 1](vuln-hub/kioptrix-1/) | Easy | Linux | Samba 2.2.1a trans2open RCE, searchsploit, gcc |
+| [Kioptrix Level 1.1](vuln-hub/kioptrix-1.1/) | Easy | Linux | SQLi auth bypass, Command Injection, Kernel exploit 2.6.9 |
+| [Kioptrix Level 1.2](vuln-hub/kioptrix-1.2/) | Easy | Linux | gobuster, SQLi, sqlmap, hash cracking, sudo ht, /etc/sudoers |
