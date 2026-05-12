@@ -10,3 +10,4 @@ Writeups de máquinas resueltas en plataformas de CTF y pentesting.
 | [Active](hack-the-box/easy/active/) | Easy | Windows | SMB Null Session, GPP Credentials, Kerberoasting |
 | [Forest](hack-the-box/easy/forest/) | Easy | Windows | AS-REP Roasting, WriteDACL, DCSync, Pass-the-Hash |
 | [Expressway](hack-the-box/easy/expressway/) | Easy | Linux | IKE/IPsec, PSK Hash Crack, Custom Sudo -h, Log Analysis |
+| [GoodGames](hack-the-box/easy/goodgames/) | Easy | Linux | SQLi, SSTI/Jinja2 RCE, Docker Escape, SUID Bash |
